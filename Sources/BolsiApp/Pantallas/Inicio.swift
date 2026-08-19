@@ -187,29 +187,38 @@ private struct HeroSaldo: View {
                 }
                 .padding(.top, 10)
 
-                HStack(spacing: 10) {
-                    // El neto, sin píldora y con su signo.
-                    Text(
-                        (estado.netoMes >= 0 ? "+ " : "− ")
-                            + Dinero.monto(abs(estado.netoMes), estado.moneda)
-                    )
-                    .font(.system(size: TextoBoceto.secundario, weight: .bold))
-                    .foregroundStyle(Color(estado.netoMes >= 0 ? paleta.plataEntra : paleta.plataSale))
-
-                    Pildora(
-                        monto: estado.ingresosMes,
-                        moneda: estado.moneda,
-                        entra: true
-                    )
-                    Pildora(
-                        monto: estado.gastosMes,
-                        moneda: estado.moneda,
-                        entra: false
-                    )
-
-                    Spacer(minLength: 0)
+                // Las cuentas en otras monedas: nunca se suman al saldo de arriba, pero
+                // tampoco pueden quedar sin rastro. Ver `EstadoInicio.otrasMonedas`.
+                if let otras = estado.otrasMonedas {
+                    Text(otras)
+                        .font(.system(size: TextoBoceto.chip, weight: .medium))
+                        .foregroundStyle(Color(paleta.tinta3))
+                        .padding(.top, 4)
                 }
-                .padding(.top, 12)
+
+                // Ingresos y gastos del mes, **si se conocen**. Sin datos no se pinta un cero:
+                // diría que este mes no entró ni salió nada, que es una afirmación y no un
+                // hueco. Cuando el motivo es que los movimientos fueron en otra moneda, se
+                // explica; cuando es que todavía no hubo ninguno, no hay nada que decir.
+                if let neto = estado.netoMes, let ingresos = estado.ingresosMes, let gastos = estado.gastosMes {
+                    HStack(spacing: 10) {
+                        // El neto, sin píldora y con su signo.
+                        Text((neto >= 0 ? "+ " : "− ") + Dinero.monto(abs(neto), estado.moneda))
+                            .font(.system(size: TextoBoceto.secundario, weight: .bold))
+                            .foregroundStyle(Color(neto >= 0 ? paleta.plataEntra : paleta.plataSale))
+
+                        Pildora(monto: ingresos, moneda: estado.moneda, entra: true)
+                        Pildora(monto: gastos, moneda: estado.moneda, entra: false)
+
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.top, 12)
+                } else if let aviso = estado.avisoOtraMoneda {
+                    Text(aviso)
+                        .font(.system(size: TextoBoceto.chip, weight: .medium))
+                        .foregroundStyle(Color(paleta.tinta3))
+                        .padding(.top, 12)
+                }
             }
         }
     }
@@ -321,12 +330,16 @@ private struct TarjetaMovimientos: View {
                 .frame(height: 7)
                 .padding(.top, 12)
 
-                Text(estado.etiquetaMes.replacingOccurrences(of: "En ", with: "En ") + ": ")
+                // El total del mes solo si se conoce. Con `nil` se muestra el reparto por
+                // categoría sin ponerle un total abajo: la barra sigue diciendo algo cierto.
+                Text(estado.etiquetaMes + ": ")
                     .font(.system(size: TextoBoceto.secundario))
                     .foregroundStyle(Color(paleta.tinta2))
-                    + Text(Dinero.monto(estado.gastosMes, estado.moneda))
+                    + Text(
+                        estado.gastosMes.map { Dinero.monto($0, estado.moneda) } ?? "sin datos"
+                    )
                     .font(.system(size: TextoBoceto.secundario, weight: .bold))
-                    .foregroundStyle(Color(paleta.tinta))
+                    .foregroundStyle(Color(estado.gastosMes == nil ? paleta.tinta3 : paleta.tinta))
             }
         }
     }

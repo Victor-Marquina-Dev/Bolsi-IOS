@@ -16,6 +16,8 @@ import BolsiCore
 /// están los tres previstos.
 struct Raiz: View {
     @Environment(\.paleta) private var paleta
+    @EnvironmentObject private var sesion: EstadoSesion
+    @StateObject private var modeloInicio = ModeloInicio()
     @State private var pestana: PestanaBoceto = Fuente.pestanaInicial
 
     var body: some View {
@@ -50,7 +52,7 @@ struct Raiz: View {
     private var contenido: some View {
         switch pestana {
         case .inicio:
-            Inicio(estado: Fuente.inicio)
+            inicio
         case .cuentas, .bolsi, .analisis, .agenda:
             // Andamio: cada pestaña se reemplaza por su pantalla real, una por una, en el mismo
             // orden que el Android (Inicio → Cuentas → Bolsi → Análisis → Agenda). A propósito
@@ -58,6 +60,84 @@ struct Raiz: View {
             // qué falta y ya.
             Andamio(pestana: pestana)
         }
+    }
+
+    /// Inicio con datos de verdad, o con la maqueta cuando corre en la CI.
+    @ViewBuilder
+    private var inicio: some View {
+        if Fuente.esMaqueta {
+            Inicio(estado: Fuente.inicioDeMaqueta)
+        } else {
+            switch modeloInicio.situacion {
+            case .cargando:
+                Cargando()
+                    // `.task` y no `.onAppear`: se cancela solo si la vista se va antes de que
+                    // llegue la respuesta, y no vuelve a dispararse al cambiar de pestaña y
+                    // regresar. En Android eso hizo falta resolverlo con un bus de refresco
+                    // aparte porque los ViewModels sobreviven al cambio de pestaña.
+                    .task { modeloInicio.cargar(sesion) }
+
+            case let .listo(estado):
+                Inicio(estado: estado)
+
+            case let .falla(mensaje):
+                Falla(mensaje: mensaje) { modeloInicio.cargar(sesion) }
+            }
+        }
+    }
+}
+
+/// Mientras no llegó la respuesta. **Sin ninguna cifra en pantalla**: un cero dibujado acá se
+/// lee como un saldo de cero, que es la mentira que el Historial del Android ya contó una vez.
+private struct Cargando: View {
+    @Environment(\.paleta) private var paleta
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Spacer()
+            ProgressView()
+                .tint(Color(paleta.tinta2))
+            Text("Buscando tus datos…")
+                .font(.system(size: TextoBoceto.secundario, weight: .medium))
+                .foregroundStyle(Color(paleta.tinta2))
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.bottom, EspacioBoceto.colaNav)
+    }
+}
+
+/// Cuando no se pudo cargar. El mensaje lo redacta el backend —o `ClienteApi` si fue la red— y
+/// se muestra tal cual, con un botón para volver a intentar.
+private struct Falla: View {
+    @Environment(\.paleta) private var paleta
+    let mensaje: String
+    let reintentar: () -> Void
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Text(mensaje)
+                .font(.system(size: TextoBoceto.cuerpo, weight: .medium))
+                .foregroundStyle(Color(paleta.tinta2))
+                .multilineTextAlignment(.center)
+
+            Button(action: reintentar) {
+                Text("Volver a intentar")
+                    .font(.system(size: TextoBoceto.secundario, weight: .bold))
+                    .foregroundStyle(Color(paleta.acentoTinta))
+                    .padding(.horizontal, 16)
+                    .frame(height: 40)
+                    .background(
+                        Capsule().fill(Color(paleta.superficie))
+                    )
+            }
+            .buttonStyle(.plain)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, EspacioBoceto.pantalla)
+        .padding(.bottom, EspacioBoceto.colaNav)
     }
 }
 

@@ -18,16 +18,43 @@ public struct EstadoInicio: Sendable {
 
     public let saldo: Decimal
     public let moneda: Moneda
-    public let ingresosMes: Decimal
-    public let gastosMes: Decimal
+
+    /// Ingresos y gastos del mes **en la misma moneda que el saldo**, o `nil`.
+    ///
+    /// Son opcionales a propósito y no vale poner cero. `nil` significa "el resumen del mes no
+    /// trae esta moneda", que pasa en dos casos reales: el mes recién empezó y no hay
+    /// movimientos, o hubo movimientos pero todos en otra moneda. En ninguno de los dos el
+    /// número es cero: es **desconocido**. Un cero dibujado ahí le dice al dueño que no gastó
+    /// nada este mes, que es una afirmación falsa — el Android ya pagó este error dos veces
+    /// (el `+ S/ 0.00` del Historial mientras cargaba) y la conclusión quedó escrita: un número
+    /// falso es peor que un hueco.
+    public let ingresosMes: Decimal?
+    public let gastosMes: Decimal?
+
     /// "En agosto" — el mes que se está mirando, con su nombre de verdad.
     public let etiquetaMes: String
+
+    /// "+ US$ 200.00 en otras cuentas": las cuentas en monedas distintas a la principal.
+    ///
+    /// Nunca se suman al saldo ni se convierten — no hay tipo de cambio en el sistema — pero
+    /// tampoco pueden quedar sin ningún rastro en pantalla. Sin esta línea, alguien con una
+    /// cuenta en dólares ve bajar ese saldo y no tiene forma de saber por qué el número grande
+    /// no se mueve: la plata no desapareció, solo está en una moneda que la pantalla nunca
+    /// menciona. `nil` con una sola moneda, que es el caso normal.
+    public let otrasMonedas: String?
+
+    /// Por qué el pill de ingresos/gastos está vacío, cuando el motivo es multi-moneda.
+    public let avisoOtraMoneda: String?
 
     public let gastoPorCategoria: [PorcionCategoria]
     public let inicialesSuscripciones: [String]
     public let suscripcionesRestantes: Int
 
-    public var netoMes: Decimal { ingresosMes - gastosMes }
+    /// El neto del mes, o `nil` si no se conocen ingresos y gastos en esta moneda.
+    public var netoMes: Decimal? {
+        guard let ingresosMes, let gastosMes else { return nil }
+        return ingresosMes - gastosMes
+    }
 
     public init(
         nombre: String,
@@ -35,9 +62,11 @@ public struct EstadoInicio: Sendable {
         hayAvisos: Bool,
         saldo: Decimal,
         moneda: Moneda,
-        ingresosMes: Decimal,
-        gastosMes: Decimal,
+        ingresosMes: Decimal?,
+        gastosMes: Decimal?,
         etiquetaMes: String,
+        otrasMonedas: String? = nil,
+        avisoOtraMoneda: String? = nil,
         gastoPorCategoria: [PorcionCategoria],
         inicialesSuscripciones: [String],
         suscripcionesRestantes: Int
@@ -50,6 +79,8 @@ public struct EstadoInicio: Sendable {
         self.ingresosMes = ingresosMes
         self.gastosMes = gastosMes
         self.etiquetaMes = etiquetaMes
+        self.otrasMonedas = otrasMonedas
+        self.avisoOtraMoneda = avisoOtraMoneda
         self.gastoPorCategoria = gastoPorCategoria
         self.inicialesSuscripciones = inicialesSuscripciones
         self.suscripcionesRestantes = suscripcionesRestantes

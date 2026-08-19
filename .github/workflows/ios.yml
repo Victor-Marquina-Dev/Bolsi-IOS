@@ -128,7 +128,9 @@ jobs:
           xcrun simctl ui booted appearance dark
           # `BolsiPantalla` le dice a la app en qué pestaña abrir: así una sola corrida deja una
           # captura por pantalla y se pueden comparar todas contra el boceto de una vez.
-          for pantalla in inicio cuentas bolsi analisis agenda; do
+          # `login` no es una pestana: es la pantalla previa, y va primero porque es la unica
+          # que el modo maqueta esconde a proposito. Ver `Fuente.mostrarLogin`.
+          for pantalla in login inicio cuentas bolsi analisis agenda; do
             xcrun simctl terminate booted com.bolsi.ios 2>/dev/null || true
             xcrun simctl launch booted com.bolsi.ios -BolsiPantalla "$pantalla"
             sleep 4

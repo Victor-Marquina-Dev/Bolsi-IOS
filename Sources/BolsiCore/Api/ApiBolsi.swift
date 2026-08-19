@@ -116,16 +116,8 @@ public struct Usuario: Decodable, Sendable {
     /// Las iniciales del avatar del boceto: dos letras si el nombre tiene dos palabras.
     ///
     /// El prototipo trae "MO" a mano para su "Massimo Osti"; acá se derivan del nombre real.
-    public var iniciales: String {
-        let palabras = nombre
-            .split(whereSeparator: { $0.isWhitespace })
-            .filter { !$0.isEmpty }
-        switch palabras.count {
-        case 0: return "?"
-        case 1: return String(palabras[0].prefix(2)).uppercased()
-        default: return (String(palabras[0].prefix(1)) + String(palabras[1].prefix(1))).uppercased()
-        }
-    }
+    /// La regla vive en `Iniciales` porque las suscripciones necesitan la misma, con una letra.
+    public var iniciales: String { Iniciales.dos(nombre) }
 }
 
 /// Fila de `GET /api/reportes/gastos-por-categoria`.

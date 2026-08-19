@@ -4,14 +4,35 @@ import BolsiCore
 /// Punto de entrada de Bolsi iOS.
 @main
 struct BolsiApp: App {
+    @StateObject private var sesion = EstadoSesion()
+
     var body: some Scene {
         WindowGroup {
             TemaBoceto {
-                Raiz()
+                contenido
             }
+            .environmentObject(sesion)
             // El boceto es oscuro por defecto (sus `data-props` declaran `"theme": "dark"`) y
             // trae claro alternativo. Se respeta el sistema, que es la convención de iOS.
             .preferredColorScheme(nil)
+        }
+    }
+
+    @ViewBuilder
+    private var contenido: some View {
+        // En modo maqueta se salta el login. No es una comodidad: el simulador de la nube no
+        // llega al backend de la LAN, así que sin esto **la CI solo podría fotografiar la
+        // pantalla de login** y no habría nada que comparar contra el boceto.
+        if Fuente.esMaqueta {
+            // `-BolsiPantalla login` fuerza el login incluso en maqueta. Sin esto la CI no
+            // podría fotografiarlo nunca: el modo maqueta existe justamente para saltearlo, y
+            // una pantalla que no se puede mirar es una pantalla que se escribió a ciegas.
+            if Fuente.mostrarLogin { Login() } else { Raiz() }
+        } else {
+            switch sesion.fase {
+            case .fuera: Login()
+            case .dentro: Raiz()
+            }
         }
     }
 }
@@ -30,16 +51,24 @@ enum Fuente {
     static let esMaqueta = false
     #endif
 
+    /// Lo que pidió la CI con `-BolsiPantalla`.
+    private static var pantallaPedida: String {
+        UserDefaults.standard.string(forKey: "BolsiPantalla") ?? ""
+    }
+
     /// La pestaña con la que abrir. La CI la pasa como `-BolsiPantalla cuentas` para dejar una
     /// captura por pantalla en una sola corrida.
     static var pestanaInicial: PestanaBoceto {
-        let pedida = UserDefaults.standard.string(forKey: "BolsiPantalla") ?? ""
-        return PestanaBoceto(rawValue: pedida) ?? .inicio
+        PestanaBoceto(rawValue: pantallaPedida) ?? .inicio
     }
 
-    /// El estado de Inicio.
+    /// `true` con `-BolsiPantalla login`: es la única forma de sacarle una captura.
+    static var mostrarLogin: Bool { pantallaPedida == "login" }
+
+    /// El estado de Inicio **de maqueta**, para las capturas de la CI.
     ///
-    /// Hoy solo hay una fuente: la maqueta. Cuando entre el cliente del API, este es el único
-    /// punto que cambia — las pantallas ya reciben el estado por parámetro y no van a enterarse.
-    static var inicio: EstadoInicio { Maqueta.inicio }
+    /// Los datos de verdad no pasan por acá: los pide `ModeloInicio` con `CargadorInicio`. Este
+    /// quedó como lo que siempre fue, una fuente para el simulador sin red, y por eso ya no se
+    /// llama como si fuera la única.
+    static var inicioDeMaqueta: EstadoInicio { Maqueta.inicio }
 }

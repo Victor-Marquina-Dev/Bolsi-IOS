@@ -14,6 +14,32 @@ public struct ColorBoceto: Sendable, Equatable, Hashable {
     public let argb: UInt32
     public init(_ argb: UInt32) { self.argb = argb }
 
+    /// Lee un color como lo escribe el backend: `"#3E8BFF"`.
+    ///
+    /// Devuelve `nil` en vez de un color por defecto. Un color inventado en silencio es un
+    /// tramo de la barra de gastos pintado de un color que no es el de esa categoría: el dueño
+    /// lee la barra por color, así que un color equivocado es un dato equivocado, no un detalle
+    /// estético. Quien llame decide qué hacer con el `nil`.
+    ///
+    /// Acepta `#RGB`, `#RRGGBB` y `#AARRGGBB`, con o sin `#`, en cualquier caja.
+    public init?(css: String) {
+        var t = css.trimmingCharacters(in: .whitespacesAndNewlines)
+        if t.hasPrefix("#") { t.removeFirst() }
+        guard let valor = UInt32(t, radix: 16) else { return nil }
+        switch t.count {
+        case 3:
+            // `#abc` es `#aabbcc`: cada dígito se duplica, no se rellena con ceros.
+            let r = (valor >> 8) & 0xF, g = (valor >> 4) & 0xF, b = valor & 0xF
+            self.argb = 0xFF00_0000 | (r << 20) | (r << 16) | (g << 12) | (g << 8) | (b << 4) | b
+        case 6:
+            self.argb = 0xFF00_0000 | valor
+        case 8:
+            self.argb = valor
+        default:
+            return nil
+        }
+    }
+
     public var alfa: Double { Double((argb >> 24) & 0xFF) / 255 }
     public var rojo: Double { Double((argb >> 16) & 0xFF) / 255 }
     public var verde: Double { Double((argb >> 8) & 0xFF) / 255 }

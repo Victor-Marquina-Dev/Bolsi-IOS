@@ -1,0 +1,96 @@
+# Compila Bolsi iOS en una Mac de la nube, saca capturas del simulador y deja la app
+# instalable en el iPhone.
+#
+# ESTE ARCHIVO ES EL COMPILADOR DE ESTE PROYECTO. En la máquina donde se escribe el código no
+# hay macOS, así que el runner de GitHub hace de Xcode. Y hace algo más importante que
+# compilar: **devuelve capturas**. Eso convierte el trabajo de "escribir a ciegas" en el mismo
+# loop que funcionó en Android — construir, mirar, corregir — solo que la vuelta tarda minutos
+# en vez de segundos.
+#
+# El simulador de la nube no llega al backend de la LAN del dueño, así que las capturas se
+# sacan en MODO MAQUETA (datos de ejemplo de `Fixtures.swift`, marcados como inventados). Los
+# datos de verdad se ven en el iPhone por TestFlight. Cada cosa verifica lo que puede:
+# la nube verifica la FORMA, el teléfono verifica los DATOS.
+
+name: iOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nucleo:
+    name: Tests de BolsiCore
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift --version
+      - name: Tests del núcleo
+        run: swift test
+
+  app:
+    name: Compilar y capturar
+    runs-on: macos-14
+    needs: nucleo
+    env:
+      SIMULADOR: iPhone 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar XcodeGen
+        run: brew install xcodegen
+
+      - name: Generar el proyecto de Xcode
+        run: xcodegen generate
+
+      - name: Compilar para el simulador
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Bolsi.xcodeproj \
+            -scheme Bolsi \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,name=$SIMULADOR,OS=latest" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            OTHER_SWIFT_FLAGS='-DMAQUETA' | xcpretty || xcodebuild build \
+            -project Bolsi.xcodeproj -scheme Bolsi -configuration Debug \
+            -destination "platform=iOS Simulator,name=$SIMULADOR,OS=latest" \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO OTHER_SWIFT_FLAGS='-DMAQUETA'
+
+      - name: Arrancar el simulador e instalar
+        run: |
+          xcrun simctl boot "$SIMULADOR" || true
+          xcrun simctl bootstatus "$SIMULADOR" -b
+          xcrun simctl install booted build/Build/Products/Debug-iphonesimulator/Bolsi.app
+
+      - name: Capturar cada pestaña
+        run: |
+          mkdir -p capturas
+          # `BOLSI_PANTALLA` le dice a la app en qué pestaña abrir: así una corrida deja
+          # una captura por pantalla y se pueden comparar todas contra el boceto de una.
+          for pantalla in inicio cuentas bolsi analisis agenda; do
+            xcrun simctl terminate booted com.bolsi.ios || true
+            xcrun simctl launch booted com.bolsi.ios --console-pty \
+              -BolsiPantalla "$pantalla" &
+            sleep 6
+            xcrun simctl io booted screenshot "capturas/$pantalla.png"
+          done
+          # Y el tema claro, que el boceto también define.
+          xcrun simctl ui booted appearance light
+          xcrun simctl terminate booted com.bolsi.ios || true
+          xcrun simctl launch booted com.bolsi.ios -BolsiPantalla inicio
+          sleep 6
+          xcrun simctl io booted screenshot "capturas/inicio-claro.png"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capturas
+          path: capturas/*.png
+          if-no-files-found: warn

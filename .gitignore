@@ -1,0 +1,27 @@
+# Swift Package Manager
+.build/
+build/
+.swiftpm/
+Package.resolved
+
+# Generado por XcodeGen: NUNCA se versiona. La fuente de verdad es project.yml, y un
+# .xcodeproj commiteado se desincroniza al primer cambio y pelea en cada merge.
+*.xcodeproj/
+*.xcworkspace/
+
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcuserstate
+*.ipa
+*.dSYM.zip
+
+# Firma: nada de esto entra al repo. Va como secreto de la CI.
+*.p12
+*.mobileprovision
+*.cer
+AuthKey_*.p8
+
+# macOS / Windows
+.DS_Store
+Thumbs.db

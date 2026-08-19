@@ -1,0 +1,71 @@
+# Proyecto de Xcode de Bolsi iOS, declarado en YAML para XcodeGen.
+#
+# POR QUÉ ESTO EXISTE
+# Un `.xcodeproj` es un plist gigante con identificadores generados; escribirlo a mano desde
+# Windows es inviable y editarlo sin Xcode se rompe al primer merge. XcodeGen lo **genera**
+# desde este archivo, así que acá se versiona un YAML legible y la Mac de la nube corre
+# `xcodegen generate` justo antes de compilar. Es lo que permite desarrollar la app sin tener
+# Xcode en la máquina donde se escribe.
+#
+# Si algún día hay una Mac de verdad, esto sigue sirviendo igual: se genera y se abre.
+
+name: Bolsi
+options:
+  bundleIdPrefix: com.bolsi
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  # Sin esto XcodeGen deja el esquema en el .xcodeproj y la CI no lo encuentra.
+  xcodeVersion: "16.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    DEVELOPMENT_LANGUAGE: es
+    # Firma manejada por la CI con la API key de App Store Connect; en local no se firma.
+    CODE_SIGN_STYLE: Automatic
+
+packages:
+  BolsiCore:
+    path: .
+
+targets:
+  Bolsi:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/BolsiApp
+    dependencies:
+      - package: BolsiCore
+        product: BolsiCore
+    info:
+      path: Sources/BolsiApp/Info.plist
+      properties:
+        CFBundleDisplayName: Bolsi
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        # Diccionario vacío a propósito: una pantalla de lanzamiento con `UIColorName`
+        # exige un catálogo de assets que todavía no existe, y sin él la build falla.
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # El boceto es oscuro por default y trae claro alternativo: se respeta el sistema.
+        UIViewControllerBasedStatusBarAppearance: false
+        # El backend de desarrollo corre en HTTP en la LAN; sin esto iOS bloquea la llamada.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bolsi.ios
+        TARGETED_DEVICE_FAMILY: "1"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+
+schemes:
+  Bolsi:
+    build:
+      targets:
+        Bolsi: all
+    run:
+      config: Debug
+    archive:
+      config: Release

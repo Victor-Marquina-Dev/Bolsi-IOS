@@ -86,9 +86,12 @@ jobs:
       - name: Elegir un iPhone del simulador
         id: sim
         run: |
-          # El nombre del simulador cambia con cada Xcode ("iPhone 15" no existe en todos),
-          # asi que se elige por UDID el iPhone mas nuevo disponible en vez de escribirlo a mano.
-          udid=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; c=sorted((r,x['name'],x['udid']) for r,l in d.items() if 'iOS' in r for x in l if 'iPhone' in x['name']); print(c[-1][2] if c else '')")
+          # El boceto mide 393 x 852: es el tamano exacto de un iPhone 14/15/16 "pelado".
+          # Elegir el simulador por nombre no sirve (cambia con cada Xcode) y ordenar
+          # alfabeticamente tampoco: "iPhone SE" le gana a "iPhone 16" y el SE mide 375 x 667,
+          # asi que las capturas saldrian de otra pantalla y la comparacion mentiria. Se elige
+          # el modelo numerico mas alto SIN sufijo (ni SE, ni mini, ni Plus, ni Pro).
+          udid=$(xcrun simctl list devices available -j | python3 -c "import json,re,sys; d=json.load(sys.stdin)['devices']; c=[(int(m.group(1)), x['udid']) for r,l in d.items() if 'iOS' in r for x in l if (m := re.fullmatch(r'iPhone (\d+)', x['name']))]; alt=[x['udid'] for r,l in d.items() if 'iOS' in r for x in l if 'iPhone' in x['name']]; print(max(c)[1] if c else (alt[-1] if alt else ''))")
           nombre=$(xcrun simctl list devices available | grep "$udid" | sed 's/ (.*//' | xargs)
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
           echo "::notice title=Simulador::$nombre ($udid)"

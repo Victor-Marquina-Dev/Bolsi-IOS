@@ -14,7 +14,10 @@ import PackageDescription
 /// entorno nadie puede comprobar.
 let package = Package(
     name: "BolsiCore",
-    platforms: [.iOS(.v17)],
+    // macOS entra en la lista aunque la app sea solo de iPhone: `swift test` en la Mac de
+    // la CI compila para el **host**, y sin un mínimo declarado SwiftPM apunta a macOS 10.13,
+    // donde el framework de testing de Swift 6 no existe. Fue lo que tiró la primera corrida.
+    platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "BolsiCore", targets: ["BolsiCore"]),
     ],

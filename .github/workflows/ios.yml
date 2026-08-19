@@ -1,5 +1,4 @@
-# Compila Bolsi iOS en una Mac de la nube, saca capturas del simulador y deja la app
-# instalable en el iPhone.
+# Compila Bolsi iOS en una Mac de la nube, saca capturas del simulador y deja un .ipa.
 #
 # ESTE ARCHIVO ES EL COMPILADOR DE ESTE PROYECTO. En la máquina donde se escribe el código no
 # hay macOS, así que el runner de GitHub hace de Xcode. Y hace algo más importante que
@@ -7,10 +6,16 @@
 # loop que funcionó en Android — construir, mirar, corregir — solo que la vuelta tarda minutos
 # en vez de segundos.
 #
+# POR QUÉ TODO SE REPORTA COMO ANOTACIÓN (`::notice::` / `::error::`)
+# El log de un job solo se puede descargar con permisos de admin del repo. Las **anotaciones**,
+# en cambio, se leen por la API pública. Así que cada dato que hace falta para diagnosticar
+# —versión de Xcode, simulador elegido, los `error:` del compilador— se emite como anotación y
+# se puede leer sin credenciales. Sin esto, cada fallo obliga a pedirle al dueño que copie el
+# log a mano.
+#
 # El simulador de la nube no llega al backend de la LAN del dueño, así que las capturas se
-# sacan en MODO MAQUETA (datos de ejemplo de `Fixtures.swift`, marcados como inventados). Los
-# datos de verdad se ven en el iPhone por TestFlight. Cada cosa verifica lo que puede:
-# la nube verifica la FORMA, el teléfono verifica los DATOS.
+# sacan en MODO MAQUETA. Cada cosa verifica lo que puede: la nube verifica la FORMA, el iPhone
+# verifica los DATOS.
 
 name: iOS
 
@@ -27,70 +32,143 @@ concurrency:
 jobs:
   nucleo:
     name: Tests de BolsiCore
-    runs-on: macos-14
+    # macos-15 y no macos-14: el paquete declara `swift-tools-version: 6.0` y usa el framework
+    # de testing de Swift 6, que llegó con Xcode 16. En el runner viejo el manifiesto ni se
+    # puede leer, y el job muere en ocho segundos sin decir por qué.
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - run: swift --version
+
+      - name: Elegir el Xcode más nuevo y reportar el entorno
+        run: |
+          ultimo=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$ultimo" ]; then sudo xcode-select -s "$ultimo"; fi
+          echo "::notice title=Entorno::macOS $(sw_vers -productVersion) | $(xcodebuild -version | tr '\n' ' ') | $(swift --version 2>&1 | head -1) | Xcodes: $(ls -d /Applications/Xcode*.app 2>/dev/null | xargs -n1 basename | tr '\n' ' ')"
+
       - name: Tests del núcleo
-        run: swift test
+        run: |
+          set +e
+          swift test 2>&1 | tee salida.txt
+          codigo=${PIPESTATUS[0]}
+          if [ "$codigo" -ne 0 ]; then
+            resumen=$(grep -E "error:|error " salida.txt | head -6 | tr '\n' '~' | sed 's/~/ %0A /g')
+            echo "::error title=Fallaron los tests del núcleo::${resumen:-sin lineas de error; ver el log}"
+          else
+            echo "::notice title=Núcleo OK::$(grep -E 'Test run with' salida.txt | tail -1)"
+          fi
+          exit "$codigo"
 
   app:
     name: Compilar y capturar
-    runs-on: macos-14
+    runs-on: macos-15
     needs: nucleo
-    env:
-      SIMULADOR: iPhone 15
     steps:
       - uses: actions/checkout@v4
+
+      - name: Elegir el Xcode más nuevo
+        run: |
+          ultimo=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$ultimo" ]; then sudo xcode-select -s "$ultimo"; fi
 
       - name: Instalar XcodeGen
         run: brew install xcodegen
 
       - name: Generar el proyecto de Xcode
-        run: xcodegen generate
+        run: |
+          set +e
+          xcodegen generate 2>&1 | tee gen.txt
+          codigo=${PIPESTATUS[0]}
+          if [ "$codigo" -ne 0 ]; then
+            echo "::error title=XcodeGen falló::$(tail -6 gen.txt | tr '\n' '~' | sed 's/~/ %0A /g')"
+          fi
+          exit "$codigo"
+
+      - name: Elegir un iPhone del simulador
+        id: sim
+        run: |
+          # El nombre del simulador cambia con cada Xcode ("iPhone 15" no existe en todos),
+          # asi que se elige por UDID el iPhone mas nuevo disponible en vez de escribirlo a mano.
+          udid=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; c=sorted((r,x['name'],x['udid']) for r,l in d.items() if 'iOS' in r for x in l if 'iPhone' in x['name']); print(c[-1][2] if c else '')")
+          nombre=$(xcrun simctl list devices available | grep "$udid" | sed 's/ (.*//' | xargs)
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Simulador::$nombre ($udid)"
 
       - name: Compilar para el simulador
         run: |
-          set -o pipefail
+          set +e
           xcodebuild build \
             -project Bolsi.xcodeproj \
             -scheme Bolsi \
             -configuration Debug \
-            -destination "platform=iOS Simulator,name=$SIMULADOR,OS=latest" \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
-            OTHER_SWIFT_FLAGS='-DMAQUETA' | xcpretty || xcodebuild build \
-            -project Bolsi.xcodeproj -scheme Bolsi -configuration Debug \
-            -destination "platform=iOS Simulator,name=$SIMULADOR,OS=latest" \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO OTHER_SWIFT_FLAGS='-DMAQUETA'
+            OTHER_SWIFT_FLAGS='-DMAQUETA' 2>&1 | tee build.txt
+          codigo=${PIPESTATUS[0]}
+          if [ "$codigo" -ne 0 ]; then
+            echo "::error title=No compiló::$(grep -E 'error:' build.txt | head -8 | tr '\n' '~' | sed 's/~/ %0A /g')"
+          fi
+          exit "$codigo"
 
-      - name: Arrancar el simulador e instalar
+      - name: Instalar en el simulador
         run: |
-          xcrun simctl boot "$SIMULADOR" || true
-          xcrun simctl bootstatus "$SIMULADOR" -b
+          xcrun simctl boot "${{ steps.sim.outputs.udid }}" || true
+          xcrun simctl bootstatus "${{ steps.sim.outputs.udid }}" -b
           xcrun simctl install booted build/Build/Products/Debug-iphonesimulator/Bolsi.app
 
       - name: Capturar cada pestaña
         run: |
           mkdir -p capturas
-          # `BOLSI_PANTALLA` le dice a la app en qué pestaña abrir: así una corrida deja
-          # una captura por pantalla y se pueden comparar todas contra el boceto de una.
+          # `BolsiPantalla` le dice a la app en qué pestaña abrir: así una sola corrida deja una
+          # captura por pantalla y se pueden comparar todas contra el boceto de una vez.
           for pantalla in inicio cuentas bolsi analisis agenda; do
-            xcrun simctl terminate booted com.bolsi.ios || true
-            xcrun simctl launch booted com.bolsi.ios --console-pty \
-              -BolsiPantalla "$pantalla" &
-            sleep 6
+            xcrun simctl terminate booted com.bolsi.ios 2>/dev/null || true
+            xcrun simctl launch booted com.bolsi.ios -BolsiPantalla "$pantalla"
+            sleep 4
             xcrun simctl io booted screenshot "capturas/$pantalla.png"
           done
-          # Y el tema claro, que el boceto también define.
+          # Y el tema claro, que el boceto también define completo.
           xcrun simctl ui booted appearance light
-          xcrun simctl terminate booted com.bolsi.ios || true
+          xcrun simctl terminate booted com.bolsi.ios 2>/dev/null || true
           xcrun simctl launch booted com.bolsi.ios -BolsiPantalla inicio
-          sleep 6
+          sleep 4
           xcrun simctl io booted screenshot "capturas/inicio-claro.png"
+          echo "::notice title=Capturas::$(ls capturas | tr '\n' ' ')"
 
       - uses: actions/upload-artifact@v4
         with:
           name: capturas
           path: capturas/*.png
           if-no-files-found: warn
+
+      # ── .ipa SIN FIRMAR, para instalar en el iPhone sin cuenta de Apple ──
+      # No sirve para TestFlight (eso necesita firma y el programa de 99 USD). Sirve para
+      # sideloading: una herramienta en la PC lo firma con un Apple ID gratis y lo instala por
+      # cable. Se re-firma cada 7 días. Se genera igual porque no cuesta nada tenerlo listo.
+      - name: Empaquetar .ipa sin firmar
+        run: |
+          set +e
+          xcodebuild build \
+            -project Bolsi.xcodeproj \
+            -scheme Bolsi \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath buildDispositivo \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            2>&1 | tee ipa.txt
+          codigo=${PIPESTATUS[0]}
+          if [ "$codigo" -ne 0 ]; then
+            echo "::notice title=El .ipa no se armó::$(grep -E 'error:' ipa.txt | head -4 | tr '\n' '~' | sed 's/~/ %0A /g')"
+            exit 0
+          fi
+          mkdir -p salida/Payload
+          cp -R buildDispositivo/Build/Products/Release-iphoneos/Bolsi.app salida/Payload/
+          cd salida && zip -qry ../Bolsi-sin-firmar.ipa Payload && cd ..
+          echo "::notice title=IPA listo::$(du -h Bolsi-sin-firmar.ipa | cut -f1)"
+        continue-on-error: true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ipa-sin-firmar
+          path: Bolsi-sin-firmar.ipa
+          if-no-files-found: ignore

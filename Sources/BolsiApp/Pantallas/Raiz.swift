@@ -27,17 +27,35 @@ struct Raiz: View {
 
             BarraBoceto(seleccionada: $pestana)
                 .padding(.bottom, EspacioBoceto.navAbajo)
+
+            // Sello de maqueta. Una captura CON este sello son datos de ejemplo; una captura sin
+            // él son datos de verdad. Sin esta marca, un saldo inventado en una captura se lee
+            // como el saldo del dueño — es el antipatrón #21 de la agencia, y acá aplica de lleno
+            // porque estas capturas son justamente lo que él va a mirar para decidir.
+            if Fuente.esMaqueta {
+                Text("MAQUETA")
+                    .font(.system(size: TextoBoceto.nav, weight: .bold))
+                    .tracking(1.2)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color(ColorBoceto(0xFFFF9F0A))))
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .padding(.top, 2)
+            }
         }
     }
 
     @ViewBuilder
     private var contenido: some View {
         switch pestana {
-        case .inicio, .cuentas, .bolsi, .analisis, .agenda:
-            // Andamio: cada pestaña se reemplaza por su pantalla real, una por una, siguiendo
-            // el mismo orden que el Android (Inicio → Cuentas → Bolsi → Análisis → Agenda).
-            // A propósito NO se pinta una pantalla con datos inventados para que "parezca"
-            // terminada: dice qué falta y ya.
+        case .inicio:
+            Inicio(estado: Fuente.inicio)
+        case .cuentas, .bolsi, .analisis, .agenda:
+            // Andamio: cada pestaña se reemplaza por su pantalla real, una por una, en el mismo
+            // orden que el Android (Inicio → Cuentas → Bolsi → Análisis → Agenda). A propósito
+            // NO se pinta una pantalla con datos inventados para que "parezca" terminada: dice
+            // qué falta y ya.
             Andamio(pestana: pestana)
         }
     }
@@ -61,21 +79,9 @@ private struct Andamio: View {
                 .font(.system(size: TextoBoceto.secundario))
                 .foregroundStyle(Color(paleta.tinta2))
             Spacer()
-            // Mientras el andamio esté en pantalla, deja ver que el núcleo funciona de verdad:
-            // los tokens y el formato de plata que ya tienen test en Windows.
-            VStack(spacing: 4) {
-                Text(Dinero.monto("15830.13", "PEN"))
-                    .font(.system(size: TextoBoceto.saldo, weight: .heavy))
-                    .tracking(TextoBoceto.saldoTracking)
-                    .foregroundStyle(Color(paleta.tinta))
-                Text("núcleo verificado · tokens del boceto")
-                    .font(.system(size: TextoBoceto.eyebrow, weight: .bold))
-                    .tracking(TextoBoceto.eyebrowTracking)
-                    .foregroundStyle(Color(paleta.tinta2))
-            }
-            .padding(.bottom, EspacioBoceto.colaNav)
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, EspacioBoceto.pantalla)
+        .padding(.bottom, EspacioBoceto.colaNav)
     }
 }

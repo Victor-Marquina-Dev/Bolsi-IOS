@@ -36,4 +36,10 @@ enum Fuente {
         let pedida = UserDefaults.standard.string(forKey: "BolsiPantalla") ?? ""
         return PestanaBoceto(rawValue: pedida) ?? .inicio
     }
+
+    /// El estado de Inicio.
+    ///
+    /// Hoy solo hay una fuente: la maqueta. Cuando entre el cliente del API, este es el único
+    /// punto que cambia — las pantallas ya reciben el estado por parámetro y no van a enterarse.
+    static var inicio: EstadoInicio { Maqueta.inicio }
 }

@@ -170,9 +170,16 @@ private struct HeroSaldo: View {
                         .minimumScaleFactor(0.7)
 
                     Button { oculto.toggle() } label: {
-                        TrazoBoceto(d: oculto ? Iconos.ojoCerrado : Iconos.ojo, lienzo: 19, grosor: 1.7)
-                            .frame(width: 19, height: 19)
-                            .foregroundStyle(Color(paleta.tinta2))
+                        // Dos trazos: parpado + iris. Con uno solo el ojo sale como un rombo
+                        // vacio — mismo bug que en Android, y volvio a aparecer en la primera
+                        // captura de la CI.
+                        TrazoBoceto(
+                            trazos: oculto ? Iconos.ojoCerrado : Iconos.ojo,
+                            lienzo: 19,
+                            grosor: 1.7
+                        )
+                        .frame(width: 19, height: 19)
+                        .foregroundStyle(Color(paleta.tinta2))
                     }
                     .buttonStyle(.plain)
 
@@ -224,6 +231,10 @@ private struct HeroSaldo: View {
                 .frame(width: 10, height: 10)
                 Text(Dinero.monto(monto, moneda))
                     .font(.system(size: TextoBoceto.secundario, weight: .bold))
+                    // Sin esto el monto se parte en dos lineas y la pildora crece al doble:
+                    // paso en la primera captura, con "S/" arriba y "500.00" abajo.
+                    .lineLimit(1)
+                    .fixedSize()
             }
             .foregroundStyle(Color(entra ? paleta.plataEntra : paleta.plataSale))
             .padding(.horizontal, 9)
@@ -389,8 +400,16 @@ enum Iconos {
     static let ajustes = "M4 6.2h8.2M15.2 6.2h.8M4 13.8h4.2M11.2 13.8h4.8"
     /// 22 × 11, no cuadrado.
     static let chevrones = "M2 2l3.4 3.4L2 8.8M9 2l3.4 3.4L9 8.8M16 2l3.4 3.4L16 8.8"
-    static let ojo = "M2.5 9.5S5.4 5 9.5 5s7 4.5 7 4.5-2.9 4.5-7 4.5-7-4.5-7-4.5z"
-    static let ojoCerrado = "M2.5 9.5S5.4 5 9.5 5s7 4.5 7 4.5-2.9 4.5-7 4.5-7-4.5-7-4.5zM3 3l13 13"
+    /// Parpado + iris. El boceto lo escribe como dos `<path>` en el mismo `<svg>`.
+    static let ojo = [
+        "M2.5 9.5S5.4 5 9.5 5s7 4.5 7 4.5-2.9 4.5-7 4.5-7-4.5-7-4.5z",
+        "M7.4 9.5a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0-4.2 0",
+    ]
+    /// Oculto: el parpado y la raya que lo cruza, sin iris.
+    static let ojoCerrado = [
+        "M2.5 9.5S5.4 5 9.5 5s7 4.5 7 4.5-2.9 4.5-7 4.5-7-4.5-7-4.5z",
+        "M3 3l13 13",
+    ]
     static let flechaArriba = "M5 8.6V1.8M2.3 4.4 5 1.7l2.7 2.7"
     static let flechaAbajo = "M5 1.8v6.8M2.3 5.9 5 8.6l2.7-2.7"
     static let tarjetas =

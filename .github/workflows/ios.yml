@@ -122,6 +122,10 @@ jobs:
       - name: Capturar cada pestaña
         run: |
           mkdir -p capturas
+          # OSCURO PRIMERO. El boceto declara `"theme": "dark"` en sus `data-props`: oscuro es el
+          # estado en que el dueño lo aprobó, y es el que hay que comparar. El simulador arranca
+          # en claro, asi que la primera corrida saco las seis capturas en el tema equivocado.
+          xcrun simctl ui booted appearance dark
           # `BolsiPantalla` le dice a la app en qué pestaña abrir: así una sola corrida deja una
           # captura por pantalla y se pueden comparar todas contra el boceto de una vez.
           for pantalla in inicio cuentas bolsi analisis agenda; do

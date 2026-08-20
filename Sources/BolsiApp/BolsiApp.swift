@@ -65,6 +65,21 @@ enum Fuente {
     /// `true` con `-BolsiPantalla login`: es la única forma de sacarle una captura.
     static var mostrarLogin: Bool { pantallaPedida == "login" }
 
+    /// `-BolsiDemo 1`: la app se recorre sola, cambiando de pestaña cada dos segundos.
+    ///
+    /// Existe porque `simctl` sabe **grabar** la pantalla pero no sabe **tocarla**, y sin toques
+    /// un video de la app es una foto que dura diez segundos. Con esto el video muestra lo que
+    /// una captura no puede: la pastilla de la barra deslizándose, los anillos de las metas
+    /// llenándose, las transiciones entre pestañas. Es la única forma de que el dueño vea la app
+    /// **moviéndose** mientras no la pueda instalar en su teléfono.
+    ///
+    /// Solo lo enciende la CI. Un arranque normal nunca pasa este argumento.
+    static var demo: Bool { UserDefaults.standard.bool(forKey: "BolsiDemo") }
+
+    /// Cuánto se queda en cada pestaña. Dos segundos y pico: alcanza para que termine la
+    /// animación de entrada y para leer la pantalla, sin hacer un video largo.
+    static let segundosPorPestana: Double = 2.4
+
     /// El estado de Inicio **de maqueta**, para las capturas de la CI.
     ///
     /// Los datos de verdad no pasan por acá: los pide `ModeloInicio` con `CargadorInicio`. Este

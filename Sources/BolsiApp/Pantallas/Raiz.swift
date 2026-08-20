@@ -46,6 +46,26 @@ struct Raiz: View {
                     .padding(.top, 2)
             }
         }
+        .task {
+            guard Fuente.demo else { return }
+            await recorrerSolo()
+        }
+    }
+
+    /// Recorre las cinco pestañas solo, para el video de la CI. Ver `Fuente.demo`.
+    private func recorrerSolo() async {
+        // Empieza por la que sigue a la actual y da una vuelta completa. Se usa la lista de
+        // pestañas y no un índice a mano: si mañana hay una sexta, entra sola.
+        let todas = PestanaBoceto.allCases
+        guard let desde = todas.firstIndex(of: pestana) else { return }
+
+        for paso in 1...todas.count {
+            try? await Task.sleep(for: .seconds(Fuente.segundosPorPestana))
+            guard !Task.isCancelled else { return }
+            withAnimation(.bocetoEstandar(MovimientoBoceto.navMs)) {
+                pestana = todas[(desde + paso) % todas.count]
+            }
+        }
     }
 
     @ViewBuilder

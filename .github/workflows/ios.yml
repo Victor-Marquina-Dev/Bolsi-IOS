@@ -147,10 +147,38 @@ jobs:
           xcrun simctl io booted screenshot "capturas/inicio-claro.png"
           echo "::notice title=Capturas::$(ls capturas | tr '\n' ' ')"
 
+      # ── Un VIDEO de la app en uso ──
+      # Una captura no muestra el movimiento, y el movimiento es la mitad de este boceto: la
+      # pastilla de la barra que se desliza en 440 ms, los anillos de las metas que se llenan,
+      # las transiciones entre pestanas. `simctl` sabe grabar la pantalla pero NO sabe tocarla,
+      # asi que la app se recorre sola con `-BolsiDemo 1` (ver `Fuente.demo`).
+      #
+      # Es lo mas parecido a ver la app andando mientras no se pueda instalar en el telefono.
+      - name: Grabar el recorrido
+        run: |
+          xcrun simctl ui booted appearance dark
+          xcrun simctl terminate booted com.bolsi.ios 2>/dev/null || true
+          xcrun simctl io booted recordVideo --codec h264 --force capturas/recorrido.mp4 &
+          grabador=$!
+          sleep 2
+          xcrun simctl launch booted com.bolsi.ios -BolsiDemo 1
+          # Cinco pestanas a 2,4 s, mas margen para el arranque y para que cierre el archivo.
+          sleep 16
+          # SIGINT y no SIGKILL: `recordVideo` cierra el mp4 al recibir INT. Con KILL el
+          # archivo queda sin el atomo `moov` y ningun reproductor lo abre.
+          kill -INT $grabador 2>/dev/null || true
+          wait $grabador 2>/dev/null || true
+          if [ -s capturas/recorrido.mp4 ]; then
+            echo "::notice title=Video::$(du -h capturas/recorrido.mp4 | cut -f1)"
+          else
+            echo "::notice title=Video::no se grabo"
+            rm -f capturas/recorrido.mp4
+          fi
+
       - uses: actions/upload-artifact@v4
         with:
           name: capturas
-          path: capturas/*.png
+          path: capturas/*
           if-no-files-found: warn
 
       # ── Las capturas, tambien en una rama ──
@@ -174,7 +202,7 @@ jobs:
             exit 0
           fi
           tmp=$(mktemp -d)
-          cp capturas/*.png "$tmp/"
+          cp capturas/* "$tmp/"
           cd "$tmp"
           echo "Capturas del simulador, generadas por la CI. Rama de un solo commit: se reescribe en cada corrida." > README.md
           git init -q -b capturas

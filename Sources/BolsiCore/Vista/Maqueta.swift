@@ -43,6 +43,20 @@ public enum Maqueta {
             PorcionCategoria(id: "6", nombre: "Categoría 6", color: colores[5], monto: 10),
         ],
         inicialesSuscripciones: ["A", "B", "C", "D"],
-        suscripcionesRestantes: 2
+        suscripcionesRestantes: 2,
+        metas: [
+            MetaUi(
+                id: "m1", nombre: "Meta de ejemplo", inicial: "M",
+                ahorrado: "S/ 600.00", objetivo: "S/ 1,000.00",
+                porcentaje: 60, fraccion: 0.6, falta: "Faltan S/ 400.00",
+                color: colores[0]
+            ),
+            MetaUi(
+                id: "m2", nombre: "Otra meta", inicial: "O",
+                ahorrado: "S/ 200.00", objetivo: "S/ 800.00",
+                porcentaje: 25, fraccion: 0.25, falta: "Faltan S/ 600.00",
+                color: colores[1]
+            ),
+        ]
     )
 }

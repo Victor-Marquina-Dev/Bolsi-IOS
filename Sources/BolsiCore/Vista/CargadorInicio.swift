@@ -55,6 +55,7 @@ public struct CargadorInicio: Sendable {
         async let categoriasPedido = api.gastosPorCategoria(desde: desde, hasta: hasta)
         async let suscripcionesPedido = api.suscripciones()
         async let pendientesPedido = api.pendientes()
+        async let metasPedido = api.metas()
 
         let cuentas: [Cuenta]
         switch await cuentasPedido {
@@ -124,6 +125,11 @@ public struct CargadorInicio: Sendable {
             }
         }
 
+        var metas: [MetaUi] = []
+        if case let .exito(lista) = await metasPedido {
+            metas = MetaUi.paraInicio(lista, moneda: moneda)
+        }
+
         return .exito(EstadoInicio(
             nombre: nombre,
             iniciales: Iniciales.dos(nombre),
@@ -137,7 +143,8 @@ public struct CargadorInicio: Sendable {
             avisoOtraMoneda: avisoOtraMoneda,
             gastoPorCategoria: porciones,
             inicialesSuscripciones: inicialesSuscripciones,
-            suscripcionesRestantes: restantes
+            suscripcionesRestantes: restantes,
+            metas: metas
         ))
     }
 

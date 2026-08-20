@@ -29,11 +29,34 @@ struct Inicio: View {
                 Accesos()
                     .padding(.top, EspacioBoceto.entreTarjetas)
 
+                // Las dos tarjetas, **de la misma altura**. El boceto es un grid de CSS, donde
+                // las celdas de una fila se estiran a la más alta por defecto; el Android lo
+                // resuelve con `height(IntrinsicSize.Min)` en la Row. Con `.top` y sin estirar,
+                // la de Movimientos quedaba más baja que la de Suscripciones y la fila se veía
+                // descalzada — así salió en la primera captura.
                 HStack(alignment: .top, spacing: EspacioBoceto.entreCeldas) {
                     TarjetaMovimientos(estado: estado)
+                        .frame(maxHeight: .infinity)
                     TarjetaSuscripciones(estado: estado, onTap: onSuscripciones)
+                        .frame(maxHeight: .infinity)
                 }
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, EspacioBoceto.entreCeldas)
+
+                // Metas. Faltaba entera: el boceto la trae y el Android la construyó, así que su
+                // ausencia era un hueco, no una decisión. Vacía no se pinta ni el encabezado —
+                // un título "Metas" sobre nada dice que algo se rompió.
+                if !estado.metas.isEmpty {
+                    EncabezadoSeccion(titulo: "Metas", conteo: estado.metas.count)
+                        .padding(.top, 20)
+
+                    VStack(spacing: EspacioBoceto.entreCeldas) {
+                        ForEach(estado.metas) { meta in
+                            TarjetaMeta(meta: meta)
+                        }
+                    }
+                    .padding(.top, EspacioBoceto.entreCeldas)
+                }
             }
             .padding(.horizontal, EspacioBoceto.pantalla)
             .padding(.bottom, EspacioBoceto.colaNav)

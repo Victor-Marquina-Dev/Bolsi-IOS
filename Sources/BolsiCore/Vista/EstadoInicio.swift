@@ -50,6 +50,9 @@ public struct EstadoInicio: Sendable {
     public let inicialesSuscripciones: [String]
     public let suscripcionesRestantes: Int
 
+    /// Las metas de la sección de abajo. Vacío = la sección no se pinta.
+    public let metas: [MetaUi]
+
     /// El neto del mes, o `nil` si no se conocen ingresos y gastos en esta moneda.
     public var netoMes: Decimal? {
         guard let ingresosMes, let gastosMes else { return nil }
@@ -69,7 +72,8 @@ public struct EstadoInicio: Sendable {
         avisoOtraMoneda: String? = nil,
         gastoPorCategoria: [PorcionCategoria],
         inicialesSuscripciones: [String],
-        suscripcionesRestantes: Int
+        suscripcionesRestantes: Int,
+        metas: [MetaUi] = []
     ) {
         self.nombre = nombre
         self.iniciales = iniciales
@@ -84,6 +88,7 @@ public struct EstadoInicio: Sendable {
         self.gastoPorCategoria = gastoPorCategoria
         self.inicialesSuscripciones = inicialesSuscripciones
         self.suscripcionesRestantes = suscripcionesRestantes
+        self.metas = metas
     }
 }
 

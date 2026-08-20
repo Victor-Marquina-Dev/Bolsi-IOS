@@ -108,3 +108,18 @@ public struct ResumenPeriodo: Decodable, Sendable {
     public let gastos: String
     public let neto: String
 }
+
+/// Una meta de ahorro.
+///
+/// `montoActual` y `porcentajeAlcanzado` **no son columnas**: el backend los calcula al leer
+/// (confirmado en el Android leyendo `metas.service.ts`). O sea que no hay que recalcularlos acá
+/// — y si se recalcularan, se estaría eligiendo entre dos verdades posibles para el mismo dato.
+public struct Meta: Decodable, Sendable, Identifiable {
+    public let id: String
+    public let nombre: String
+    public let montoObjetivo: String
+    public let montoActual: String
+    public let moneda: Moneda
+    public let fechaLimite: String
+    public let porcentajeAlcanzado: Double
+}

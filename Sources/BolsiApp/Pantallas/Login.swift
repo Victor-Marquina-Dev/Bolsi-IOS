@@ -23,9 +23,7 @@ struct Login: View {
     @State private var email = ""
     @State private var password = ""
     @State private var verServidor = false
-    @FocusState private var foco: Campo?
-
-    private enum Campo { case email, password, servidor }
+    @FocusState private var foco: CampoLogin?
 
     /// Ocho caracteres es el mínimo del backend. Se comprueba acá para no gastar un viaje de red
     /// en algo que va a rebotar seguro — pero el mensaje de un rechazo real lo sigue redactando
@@ -37,66 +35,89 @@ struct Login: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                marca
-                    .padding(.top, 64)
-
-                Text("Entrá a tu Bolsi")
-                    .font(.system(size: TextoBoceto.saldo, weight: .heavy))
-                    .tracking(TextoBoceto.saldoTracking)
-                    .foregroundStyle(Color(paleta.tinta))
-                    .padding(.top, 22)
-
-                Text("Tus cuentas, tus bolsis y lo que se viene este mes.")
-                    .font(.system(size: TextoBoceto.secundario, weight: .medium))
-                    .foregroundStyle(Color(paleta.tinta2))
-                    .padding(.top, 6)
-
-                CampoTexto(
-                    etiqueta: "CORREO",
-                    texto: $email,
-                    marcador: "vos@correo.com",
-                    esCorreo: true
-                )
-                .focused($foco, equals: .email)
-                .padding(.top, 28)
-
-                CampoTexto(
-                    etiqueta: "CONTRASEÑA",
-                    texto: $password,
-                    marcador: "••••••••",
-                    esSecreto: true
-                )
-                .focused($foco, equals: .password)
-                .padding(.top, 10)
-                .onSubmit(entrar)
-
-                if let error = sesion.error {
-                    // El texto lo escribe el backend y se muestra tal cual: si él explica por
-                    // qué rechazó algo, traducirlo de nuevo acá solo agrega una versión que se
-                    // desincroniza.
-                    Text(error)
-                        .font(.system(size: TextoBoceto.secundario, weight: .semibold))
-                        .foregroundStyle(Color(paleta.rojo))
-                        .padding(.top, 12)
-                        .transition(.opacity)
-                }
-
-                botonEntrar
-                    .padding(.top, 20)
-
-                servidorPlegado
-                    .padding(.top, 24)
-
-                Spacer(minLength: 40)
+        // `GeometryReader` para saber el alto visible y centrar el bloque.
+        //
+        // Sin esto queda pegado arriba con media pantalla vacía abajo, que es como salió en la
+        // primera captura. Y no se puede resolver con `maxHeight: .infinity` adentro del
+        // `ScrollView`: **un ScrollView mide su contenido con alto no acotado**, así que
+        // `.infinity` no tiene contra qué expandirse. Es el mismo mecanismo que costó dos horas
+        // en el `Popup` de Android — antipatrón #22 de la agencia, otro contenedor, misma
+        // trampa.
+        GeometryReader { geo in
+            ScrollView {
+                contenido(altoVisible: geo.size.height)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, EspacioBoceto.pantalla + 6)
+            .background(Color(paleta.fondo).ignoresSafeArea())
         }
-        .background(Color(paleta.fondo).ignoresSafeArea())
         .animation(.bocetoEntrada(), value: sesion.error)
         .animation(.bocetoEstandar(), value: verServidor)
+    }
+
+    private func contenido(altoVisible: Double) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Spacer(minLength: 24)
+
+            marca
+
+            Text("Entrá a tu Bolsi")
+                .font(.system(size: TextoBoceto.saldo, weight: .heavy))
+                .tracking(TextoBoceto.saldoTracking)
+                .foregroundStyle(Color(paleta.tinta))
+                .padding(.top, 22)
+
+            Text("Tus cuentas, tus bolsis y lo que se viene este mes.")
+                .font(.system(size: TextoBoceto.secundario, weight: .medium))
+                .foregroundStyle(Color(paleta.tinta2))
+                .padding(.top, 6)
+
+            CampoTexto(
+                etiqueta: "CORREO",
+                texto: $email,
+                marcador: "vos@correo.com",
+                foco: $foco,
+                propio: .email,
+                esCorreo: true
+            )
+            .padding(.top, 28)
+
+            CampoTexto(
+                etiqueta: "CONTRASEÑA",
+                texto: $password,
+                // NO puntos como marcador. En la primera captura el campo se leia como
+                // si ya tuviera una contrasena escrita. Y este texto hace doble trabajo:
+                // explica por que el boton sigue apagado.
+                marcador: "Mínimo 8 caracteres",
+                foco: $foco,
+                propio: .password,
+                esSecreto: true
+            )
+            .padding(.top, 10)
+            .onSubmit(entrar)
+
+            if let error = sesion.error {
+                // El texto lo escribe el backend y se muestra tal cual: si él explica por
+                // qué rechazó algo, traducirlo de nuevo acá solo agrega una versión que se
+                // desincroniza.
+                Text(error)
+                    .font(.system(size: TextoBoceto.secundario, weight: .semibold))
+                    .foregroundStyle(Color(paleta.rojo))
+                    .padding(.top, 12)
+                    .transition(.opacity)
+            }
+
+            botonEntrar
+                .padding(.top, 20)
+
+            servidorPlegado
+                .padding(.top, 24)
+
+            Spacer(minLength: 24)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // `minHeight` y no `height`: con el teclado abierto el contenido tiene que poder
+        // crecer y desplazarse, no quedar recortado a la altura de la pantalla.
+        .frame(minHeight: altoVisible)
+        .padding(.horizontal, EspacioBoceto.pantalla + 6)
     }
 
     // MARK: - Piezas
@@ -169,9 +190,10 @@ struct Login: View {
                     etiqueta: nil,
                     texto: $sesion.direccion,
                     marcador: DireccionServidor.sugerida,
+                    foco: $foco,
+                    propio: .servidor,
                     esUrl: true
                 )
-                .focused($foco, equals: .servidor)
                 .padding(.top, 10)
 
                 // Se muestra la URL completa a la que va a pegar. Escribir "192.168.0.101" y no
@@ -199,12 +221,23 @@ struct Login: View {
 
 // MARK: - Campo
 
+/// Cuál de los tres campos tiene el teclado.
+enum CampoLogin { case email, password, servidor }
+
 /// Un campo de texto con la piel del boceto: superficie, radio de chip y rótulo arriba.
+///
+/// **El foco entra como parámetro y se aplica adentro, sobre el `TextField`.** Puesto por fuera
+/// —`CampoTexto(...).focused(...)`— no funciona: `.focused` marca la vista a la que se aplica
+/// como destino del foco, y una `VStack` no puede recibirlo. El teclado nunca se movería al
+/// campo pedido, y el síntoma sería un campo de servidor que se abre pero no se puede escribir
+/// sin tocarlo a mano.
 private struct CampoTexto: View {
     @Environment(\.paleta) private var paleta
     let etiqueta: String?
     @Binding var texto: String
     let marcador: String
+    var foco: FocusState<CampoLogin?>.Binding
+    let propio: CampoLogin
     var esCorreo = false
     var esSecreto = false
     var esUrl = false
@@ -239,8 +272,10 @@ private struct CampoTexto: View {
     private var campo: some View {
         if esSecreto {
             SecureField(marcador, text: $texto)
+                .focused(foco, equals: propio)
         } else {
             TextField(marcador, text: $texto)
+                .focused(foco, equals: propio)
                 .keyboardType(esCorreo ? .emailAddress : (esUrl ? .URL : .default))
                 .textContentType(esCorreo ? .emailAddress : nil)
         }

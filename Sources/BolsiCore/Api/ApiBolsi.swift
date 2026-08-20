@@ -48,6 +48,14 @@ public struct ApiBolsi: Sendable {
         await cliente.obtener("/pendientes")
     }
 
+    /// Metas **con el progreso ya calculado por el backend**.
+    ///
+    /// Una sola página de 100, igual que el Android: no hay interfaz de paginación para
+    /// catálogos y pedir de a 20 obligaría a inventarla antes de necesitarla.
+    public func metas() async -> ResultadoApi<[Meta]> {
+        await cliente.obtener("/metas", consulta: ["page": "1", "limit": "100"])
+    }
+
     // MARK: - Movimientos
 
     public func transacciones(

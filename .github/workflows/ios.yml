@@ -62,6 +62,9 @@ jobs:
     name: Compilar y capturar
     runs-on: macos-15
     needs: nucleo
+    # Escritura para publicar las capturas en su propia rama (ver el paso del final).
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -149,6 +152,38 @@ jobs:
           name: capturas
           path: capturas/*.png
           if-no-files-found: warn
+
+      # ── Las capturas, tambien en una rama ──
+      # El artefacto sirve para que el dueno lo baje del navegador. Pero para CORREGIR hay que
+      # mirar la captura desde la maquina donde se escribe el codigo, y bajar un artefacto por
+      # la API **pide autenticacion incluso en un repo publico** (devuelve 401). Un `git fetch`,
+      # en cambio, ya tiene credenciales.
+      #
+      # Por eso las capturas se publican en una rama propia. Es lo que cierra el loop: construir,
+      # MIRAR, corregir. Sin esto cada vuelta cuesta pedirle al dueno que descargue un zip.
+      #
+      # Rama huerfana de un solo commit, forzada en cada corrida: interesa la ultima foto, no la
+      # historia. Y se arma en un directorio aparte para no poder tocar el arbol de trabajo.
+      - name: Publicar las capturas en la rama capturas
+        if: always()
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! ls capturas/*.png >/dev/null 2>&1; then
+            echo "::notice title=Sin capturas::no hay nada que publicar"
+            exit 0
+          fi
+          tmp=$(mktemp -d)
+          cp capturas/*.png "$tmp/"
+          cd "$tmp"
+          echo "Capturas del simulador, generadas por la CI. Rama de un solo commit: se reescribe en cada corrida." > README.md
+          git init -q -b capturas
+          git config user.name "CI de Bolsi"
+          git config user.email "ci@bolsi.local"
+          git add -A
+          git commit -q -m "Capturas de ${GITHUB_SHA:0:7}"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" capturas
+          echo "::notice title=Capturas publicadas::rama capturas, commit ${GITHUB_SHA:0:7}"
 
       # ── .ipa SIN FIRMAR, para instalar en el iPhone sin cuenta de Apple ──
       # No sirve para TestFlight (eso necesita firma y el programa de 99 USD). Sirve para

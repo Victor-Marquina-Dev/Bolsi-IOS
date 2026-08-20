@@ -36,10 +36,12 @@ struct Inicio: View {
                 // descalzada — así salió en la primera captura.
                 HStack(alignment: .top, spacing: EspacioBoceto.entreCeldas) {
                     TarjetaMovimientos(estado: estado)
-                        .frame(maxHeight: .infinity)
                     TarjetaSuscripciones(estado: estado, onTap: onSuscripciones)
-                        .frame(maxHeight: .infinity)
                 }
+                // `fixedSize` vertical le da a la fila un alto definido —el mayor de las dos—
+                // para que el `estirar` de las tarjetas tenga contra qué expandirse. Dentro de
+                // un `ScrollView` el alto propuesto es infinito, y con eso `maxHeight:.infinity`
+                // se resuelve al alto del contenido: no estira nada.
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, EspacioBoceto.entreCeldas)
 
@@ -322,7 +324,7 @@ private struct TarjetaMovimientos: View {
     let estado: EstadoInicio
 
     var body: some View {
-        TarjetaBoceto(radio: RadioBoceto.tarjetaChica) {
+        TarjetaBoceto(radio: RadioBoceto.tarjetaChica, estirar: true) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Text("Movimientos")
@@ -375,7 +377,7 @@ private struct TarjetaSuscripciones: View {
 
     var body: some View {
         Button(action: onTap) {
-            TarjetaBoceto(radio: RadioBoceto.tarjetaChica) {
+            TarjetaBoceto(radio: RadioBoceto.tarjetaChica, estirar: true) {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack {
                         Text("Suscripciones")

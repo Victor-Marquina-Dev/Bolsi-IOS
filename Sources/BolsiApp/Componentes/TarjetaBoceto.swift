@@ -30,10 +30,20 @@ struct TarjetaBoceto<Contenido: View>: View {
     /// Casi todas las tarjetas del boceto alinean a la izquierda; las que centran ya lo resuelven
     /// con un `frame(maxWidth: .infinity)` en su propio contenido.
     var alineacion: HorizontalAlignment = .leading
+    /// Que la tarjeta llene el alto que le den, para igualar con su vecina de fila.
+    ///
+    /// **Va acá y no en quien la usa.** Un `.frame(maxHeight: .infinity)` puesto por fuera
+    /// —`TarjetaBoceto(...).frame(maxHeight: .infinity)`— estira el marco pero **no la tarjeta**:
+    /// el fondo se dibuja adentro y sigue midiendo el contenido, así que la tarjeta queda chica
+    /// y centrada en un hueco más grande. Se intentó así primero y no movió un píxel.
+    var estirar: Bool = false
     @ViewBuilder var contenido: Contenido
 
     var body: some View {
         VStack(alignment: alineacion, spacing: 0) { contenido }
+            // `.top` para que el contenido no se centre en la tarjeta estirada: el boceto lo
+            // deja arriba y el espacio de sobra queda abajo.
+            .frame(maxHeight: estirar ? .infinity : nil, alignment: .top)
             .padding(padding)
             .background(
                 RoundedRectangle(cornerRadius: radio, style: .continuous)

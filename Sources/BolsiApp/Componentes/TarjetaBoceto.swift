@@ -12,16 +12,28 @@ import BolsiCore
 /// acepta desplazamiento ni color propio, así que hubo que dibujarla a mano con un
 /// `BlurMaskFilter`. En SwiftUI `.shadow(color:radius:x:y:)` los toma directo. El radio va a la
 /// mitad del `blur-radius` del CSS porque son escalas distintas: 3 px de CSS son ~1,5 de radio.
+///
+/// > [!danger] El contenido se envuelve en un `VStack`, y no es cosmético
+/// > Sin ese `VStack`, `.padding()` y `.background()` caen sobre un `TupleView`, y SwiftUI los
+/// > aplica **a cada hijo por separado**: una tarjeta con tres vistas hermanas sale como tres
+/// > tarjetas. Pasó exactamente eso con la tarjeta de Meta —el anillo en una, la barra en otra y
+/// > el "Faltan S/ 400" en una tercera— y no se había visto antes porque **todas las llamadas
+/// > anteriores pasaban una sola vista raíz**. Un componente que solo funciona si se lo usa de
+/// > una manera concreta es una trampa esperando a la siguiente llamada, así que el molde se
+/// > arregla acá y no en quien lo usa.
 struct TarjetaBoceto<Contenido: View>: View {
     @Environment(\.paleta) private var paleta
 
     var radio: Double = RadioBoceto.tarjeta
     var padding: EdgeInsets = EdgeInsets(top: 13, leading: 14, bottom: 13, trailing: 14)
     var conBorde: Bool = false
+    /// Casi todas las tarjetas del boceto alinean a la izquierda; las que centran ya lo resuelven
+    /// con un `frame(maxWidth: .infinity)` en su propio contenido.
+    var alineacion: HorizontalAlignment = .leading
     @ViewBuilder var contenido: Contenido
 
     var body: some View {
-        contenido
+        VStack(alignment: alineacion, spacing: 0) { contenido }
             .padding(padding)
             .background(
                 RoundedRectangle(cornerRadius: radio, style: .continuous)

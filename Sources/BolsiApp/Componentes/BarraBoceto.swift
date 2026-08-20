@@ -57,18 +57,32 @@ struct BarraBoceto: View {
     @Environment(\.paleta) private var paleta
     @Binding var seleccionada: PestanaBoceto
 
+    /// El color de los realces de la barra: blanco sobre oscuro, tinta sobre claro.
+    ///
+    /// El boceto usa `rgba(255,255,255,…)` en toda la barra porque **su barra siempre es
+    /// oscura**, incluso en tema claro no invierte el `--tab`... salvo que sí lo invierte: su
+    /// paleta clara define la barra en blanco. Con la barra blanca, los realces blancos
+    /// desaparecen, así que el tinte tiene que seguir al tema.
+    private var tinteDePastilla: Color {
+        paleta.esOscuro ? .white : Color(paleta.tinta)
+    }
+
     var body: some View {
         GeometryReader { geo in
             let anchoPestana = (geo.size.width - EspacioBoceto.navPadding * 2) / 5
 
             ZStack(alignment: .leading) {
-                // La pastilla del ítem activo (`pillStyle`): blanco al 15 %, con su borde
-                // interior, y se desliza con la curva estándar en 440 ms.
+                // La pastilla del ítem activo (`pillStyle`): en oscuro es blanco al 15 %, y se
+                // desliza con la curva estándar en 440 ms.
+                //
+                // **En claro no puede ser blanco**: blanco sobre una barra blanca no se ve, y
+                // la pastilla es lo único que dice en qué pestaña estás. El boceto la resuelve
+                // con su tinta al mismo porcentaje, que es lo que hace `tinteDePastilla`.
                 RoundedRectangle(cornerRadius: RadioBoceto.pastilla, style: .continuous)
-                    .fill(.white.opacity(0.15))
+                    .fill(tinteDePastilla.opacity(0.15))
                     .overlay(
                         RoundedRectangle(cornerRadius: RadioBoceto.pastilla, style: .continuous)
-                            .strokeBorder(.white.opacity(0.09), lineWidth: 1)
+                            .strokeBorder(tinteDePastilla.opacity(0.09), lineWidth: 1)
                     )
                     .frame(width: anchoPestana)
                     .padding(.vertical, EspacioBoceto.pastillaInset)
@@ -94,8 +108,13 @@ struct BarraBoceto: View {
                     .fill(.ultraThinMaterial)
                 // El color propio de la barra encima del material: el boceto define `--tab`
                 // aparte de `--surface`, no es la misma superficie que las tarjetas.
+                //
+                // Sale de la PALETA y no escrito a mano. Estaba fijo en el valor oscuro
+                // (`0xB80C0E13`), así que en tema claro la barra quedaba negra sobre fondo
+                // claro: se veía en la captura `inicio-claro.png` y en oscuro era invisible
+                // porque el valor correcto y el equivocado coinciden ahí.
                 RoundedRectangle(cornerRadius: RadioBoceto.nav, style: .continuous)
-                    .fill(Color(ColorBoceto(0xB80C0E13)))
+                    .fill(Color(paleta.barra))
             }
         )
         // Las dos sombras interiores del boceto: la línea de luz de arriba y el borde de 1 px.
@@ -103,7 +122,7 @@ struct BarraBoceto: View {
             RoundedRectangle(cornerRadius: RadioBoceto.nav, style: .continuous)
                 .strokeBorder(
                     LinearGradient(
-                        colors: [.white.opacity(0.14), .white.opacity(0.07)],
+                        colors: [tinteDePastilla.opacity(0.14), tinteDePastilla.opacity(0.07)],
                         startPoint: .top,
                         endPoint: .bottom
                     ),
@@ -122,6 +141,7 @@ struct BarraBoceto: View {
 
     /// Un ítem: ícono de 21 px y su etiqueta de 9,5 px, que engorda cuando está activo.
     private struct Boton: View {
+        @Environment(\.paleta) private var paleta
         let pestana: PestanaBoceto
         let activa: Bool
         let onTap: () -> Void
@@ -136,7 +156,12 @@ struct BarraBoceto: View {
                         .tracking(-0.15)
                         .lineLimit(1)
                 }
-                .foregroundStyle(activa ? .white : .white.opacity(0.55))
+                // De la paleta, no blanco fijo. Estaba en `.white`, que sobre la barra oscura
+                // se veía bien y sobre la barra clara **desaparecería**: en oscuro `tinta` ya es
+                // casi blanco (`F5F6F8`), así que el aspecto en el tema aprobado no cambia.
+                .foregroundStyle(
+                    activa ? Color(paleta.tinta) : Color(paleta.tinta).opacity(0.55)
+                )
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
             }
